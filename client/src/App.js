@@ -16,8 +16,7 @@ export default class App extends React.Component {
   state = {
     accountName: '',
     loggedIn: false,
-    from: '',
-    to: ''
+    transactions: '',
   }
 
   onInputChange = (key, value) => {
@@ -40,8 +39,8 @@ export default class App extends React.Component {
 
   storeItem = async (key, store) => {
     try {
-      const privatekey = await AsyncStorage.setItem(key, store);
-      return privatekey
+      const storage = await AsyncStorage.setItem(key, store);
+      return storage
     } catch (err) {
       console.log(err.message)
     }
@@ -58,11 +57,11 @@ export default class App extends React.Component {
   }
 
   triggerStoreKey = async () => {
-    await this.storeItem("ACCOUNT_NAME", this.state.privateKey);
-    this.setState({
-      loggedIn: true,
-      privateKey: ''
-    })
+    await this.storeItem("ACCOUNT_NAME", JSON.stringify(this.state.accountName));
+    this.setState(prevState => ({
+      ...prevState,
+      loggedIn: true
+    }))
   }
 
   triggerRemoveKey = async () => {
@@ -70,48 +69,8 @@ export default class App extends React.Component {
     if (success) {
       this.setState({
         loggedIn: false,
-        privateKey: ''
+        accountName: ''
       })
-    }
-  }
-
-  sendTransfer = async () => {
-    try {
-      const defaultPrivateKey = await AsyncStorage.getItem("ACCOUNT_NAME");
-      console.log(defaultPrivateKey)
-      const signatureProvider = new JsSignatureProvider([defaultPrivateKey]);
-
-      const api = new Api({
-        rpc,
-        signatureProvider,
-        textDecoder: new TextDecoder(),
-        textEncoder: new TextEncoder()
-      });
-
-      const result = await api.transact({
-        actions: [{
-          account: 'eosio.token',
-          name: 'transfer',
-          authorization: [{
-            actor: this.state.from,
-            permission: 'active',
-          }],
-          data: {
-            from: this.state.from,
-            to: this.state.to,
-            quantity: this.state.amount,
-            memo: this.state.memo,
-          },
-        }]
-      }, {
-        blocksBehind: 3,
-        expireSeconds: 30,
-      });
-      console.log(result);
-    } catch (e) {
-      console.log('\nCaught exception: ' + e);
-      if (e instanceof RpcError)
-      console.log(JSON.stringify(e.json, null, 2));
     }
   }
 
@@ -123,16 +82,17 @@ export default class App extends React.Component {
         const resp = await rpc.get_table_rows({
             json: true,              // Get the response as json
             code: 'eosio.token',     // Contract that we target
-            scope: 'testacc'         // Account that owns the data
-            table: 'accounts'        // Table name
+            scope: accountName,         // Account that owns the data
+            table: 'accounts',        // Table name
             limit: 10,               // Maximum number of rows that we want to get
-            reverse = false,         // Optional: Get reversed data
-            show_payer = false,      // Optional: Show ram payer
+            reverse: false,         // Optional: Get reversed data
+            show_payer: false,      // Optional: Show ram payer
         });
         console.log(resp)
         this.setState({
           loggedIn: true,
-          transactions: resp
+          transactions: resp,
+          accountName: accountName
         });
       }
     } catch (error) {
@@ -145,58 +105,27 @@ export default class App extends React.Component {
     return (
       <View style={styles.container}>
         <Text style = {{fontSize: 20, marginBottom: 20, fontWeight: '600'}}>
-          EOS Keystore
+          EOS Balances
         </Text>
-
         { this.state.loggedIn ? (
-
           <View>
-            <Text style = {{fontSize: 16, marginBottom: 20, fontWeight: '600'}}>
-              Send Payment
-            </Text>
-            <Input
-              placeholder="from"
-              type='from'
-              name='from'
-              onChangeText={this.onInputChange}
-              value={this.state.from}
-            />
-            <Input
-              placeholder="to"
-              type='to'
-              name='to'
-              onChangeText={this.onInputChange}
-              value={this.state.to}
-            />
-            <Input
-              placeholder="amount"
-              type='amount'
-              name='amount'
-              onChangeText={this.onInputChange}
-              value={this.state.amount}
-            />
-            <Input
-              placeholder="memo"
-              type='memo'
-              name='memo'
-              onChangeText={this.onInputChange}
-              value={this.state.memo}
-            />
+            <Text style = {{fontWeight: '900'}}>Balance for {this.state.accountName}</Text>
+            {Object.keys(this.state.transactions.rows).map(key => { return(
+              <Text style = {{fontSize: 20}}>
+                { this.state.transactions.rows[key].balance }
+              </Text>
+            )})}
             <Button
-              title='Send Payment'
-              onPress={this.sendTransfer}
-             />
-            <Button
-              title='Remove Privatekey'
+              title='Remove Account'
               onPress={this.triggerRemoveKey}
              />
           </View>
         ) : (
           <View>
             <Input
-              placeholder="Enter Private Key"
-              type='privateKey'
-              name='privateKey'
+              placeholder="Enter EOS Account Name"
+              type='accountName'
+              name='accountName'
               onChangeText={this.onInputChange}
               value={this.state.accountName}
             />
@@ -206,8 +135,6 @@ export default class App extends React.Component {
              />
           </View>
         )}
-
-
       </View>
     );
   }
