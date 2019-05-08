@@ -1,8 +1,8 @@
-# EOS Payment App
+# EOS Account Balances
 
 ## 1 | Description
 
-User interface that sends EOS payments.
+Shows all current account balances for a given account.
 
 
 ## 2 | Getting Started
